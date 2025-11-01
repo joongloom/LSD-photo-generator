@@ -1,0 +1,5 @@
+aiogram>=3.0.0
+tensorflow>=2.10.0
+numpy
+pillow
+python-dotenv
