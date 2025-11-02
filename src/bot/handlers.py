@@ -6,63 +6,78 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from .keyboards import get_settings_kb
 
+
 router = Router()
 
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, state: FSMContext):
-    await state.update_data(intensity="medium", is_random=False)
+    await state.update_data(intensity="medium", style="trip")
     await message.answer(
-        "Бот готов! Выбери режим кнопками или просто пришли фото.",
+        "1) выбери тип эффектов\n"
+        "2) выбери нтенсивность\n"
+        "3) пришлифото",
         reply_markup=get_settings_kb()
     )
 
-# Хендлер для выбора интенсивности
-@router.message(F.text.in_(["Low", "Medium", "High"]))
-async def set_intensity(message: types.Message, state: FSMContext):
-    await state.update_data(intensity=message.text.lower(), is_random=False)
-    await message.answer(f"✅ Установлен режим: {message.text}")
 
-# Хендлер для рандома
-@router.message(F.text == "🎲 Surprise Me (Random)")
-async def set_random(message: types.Message, state: FSMContext):
-    await state.update_data(is_random=True)
-    await message.answer("✅ Режим Random включен! Галлюцинации будут непредсказуемыми.")
+@router.message(F.text.contains("Art"))
+async def set_style_art(message: types.Message, state: FSMContext):
+    await state.update_data(style="art")
+    await message.answer("текстуры и штрихи")
+
+
+@router.message(F.text.contains("Trip"))
+async def set_style_trip(message: types.Message, state: FSMContext):
+    await state.update_data(style="trip")
+    await message.answer("узоры и формы")
+
+
+@router.message(F.text.contains("Deep"))
+async def set_style_deep(message: types.Message, state: FSMContext):
+    await state.update_data(style="deep")
+    await message.answer("глаза и галлюцинации")
+
+
+@router.message(F.text.contains("Intensity"))
+async def set_intensity(message: types.Message, state: FSMContext):
+    intensity = message.text.split()[0].lower()
+    await state.update_data(intensity=intensity)
+    await message.answer(f"интенсивность: {intensity.capitalize()}")
+
 
 @router.message(F.photo)
 async def handle_photo(message: types.Message, state: FSMContext, processor):
     data = await state.get_data()
     intensity = data.get("intensity", "medium")
-    is_random = data.get("is_random", False)
+    style = data.get("style", "trip")
 
-    # Работа с путями
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
     
-    photo = message.photo[-1]
-    input_path = data_dir / f"in_{photo.file_id}.jpg"
-    output_path = data_dir / f"out_{photo.file_id}.jpg"
+    photo_id = message.photo[-1].file_id
+    input_path = data_dir / f"in_{photo_id}.jpg"
+    output_path = data_dir / f"out_{photo_id}.jpg"
 
-    status_msg = await message.answer(f"🧠 Работаю в режиме {intensity.upper()}... Ждите.")
+    status = await message.answer(f"обработка...")
 
     try:
-        # Скачиваем
-        await message.bot.download(photo, destination=str(input_path))
+        await message.bot.download(message.photo[-1], destination=str(input_path))
         
-        # Запускаем DeepDream
         await asyncio.to_thread(
             processor.run_dream, 
-            str(input_path), str(output_path), intensity, is_random
+            str(input_path), 
+            str(output_path), 
+            intensity, 
+            style
         )
 
-        # Отправляем результат
         await message.answer_photo(
-            photo=types.FSInputFile(str(output_path)),
-            caption=f"Готово! Степень: {intensity}"
+            photo=types.FSInputFile(str(output_path))
         )
     except Exception as e:
-        logging.error(f"Ошибка: {e}")
-        await message.answer("Произошла ошибка при обработке нейронкой.")
+        logging.error(f"Error processing image: {e}")
+        await message.answer("произошла ошибка при обработке")
     finally:
         if input_path.exists(): input_path.unlink()
         if output_path.exists(): output_path.unlink()
-        await status_msg.delete()
+        await status.delete()
