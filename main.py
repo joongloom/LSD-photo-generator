@@ -1,29 +1,40 @@
 import asyncio
 import logging
 import os
+import sys
 from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
+
 from src.dream.model import DreamModel
 from src.dream.processor import DeepDreamProcessor
 from src.bot.handlers import router
 
+
 async def main():
     load_dotenv()
-    # Настраиваем логи
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    logging.basicConfig(
+        level=logging.INFO, 
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        stream=sys.stdout
+    )
     
+    token = os.getenv("BOT_TOKEN")
+
     os.makedirs("data", exist_ok=True)
 
-    # Инициализация ML
-    model = DreamModel()
-    processor = DeepDreamProcessor(model)
+    dream_model = DreamModel()
+    processor = DeepDreamProcessor(dream_model)
 
-    bot = Bot(token=os.getenv("BOT_TOKEN"))
+    bot = Bot(token=token)
     dp = Dispatcher()
     dp.include_router(router)
-
-    logging.info("DeepDream Bot запущен!")
+    
+    logging.info("модель запущена локально")
+    
     await dp.start_polling(bot, processor=processor)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("бот остановлен")

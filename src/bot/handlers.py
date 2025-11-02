@@ -38,7 +38,7 @@ async def set_style_deep(message: types.Message, state: FSMContext):
     await message.answer("глаза и галлюцинации")
 
 
-@router.message(F.text.contains("Intensity"))
+@router.message(F.text.startswith(("Low", "Medium", "High")))
 async def set_intensity(message: types.Message, state: FSMContext):
     intensity = message.text.split()[0].lower()
     await state.update_data(intensity=intensity)
@@ -75,7 +75,7 @@ async def handle_photo(message: types.Message, state: FSMContext, processor):
             photo=types.FSInputFile(str(output_path))
         )
     except Exception as e:
-        logging.error(f"Error processing image: {e}")
+        logging.error(f"error processing image: {e}")
         await message.answer("произошла ошибка при обработке")
     finally:
         if input_path.exists(): input_path.unlink()
